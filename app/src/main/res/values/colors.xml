@@ -1,0 +1,22 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- iOS glass palette — neutral grays, no purple -->
+    <color name="glass_bg">#F2F2F7</color>           <!-- iOS systemGroupedBackground -->
+    <color name="glass_surface">#FFFFFFFF</color>     <!-- card / sheet surface -->
+    <color name="glass_surface_dim">#E5E5EA</color>   <!-- separator / input bg -->
+    <color name="glass_on_surface">#1C1C1E</color>    <!-- primary text -->
+    <color name="glass_secondary_text">#8E8E93</color><!-- secondary / caption text -->
+    <color name="glass_tint">#007AFF</color>          <!-- iOS system blue — buttons, FAB, links -->
+    <color name="glass_tint_dark">#0A84FF</color>     <!-- iOS blue in dark mode -->
+    <color name="glass_destructive">#FF3B30</color>   <!-- iOS red — delete actions -->
+    <color name="glass_separator">#C6C6C8</color>
+
+    <!-- Overlay behind block screen -->
+    <color name="overlay_bg">#CC000000</color>
+
+    <!-- Dark mode equivalents -->
+    <color name="glass_bg_dark">#1C1C1E</color>
+    <color name="glass_surface_dark">#2C2C2E</color>
+    <color name="glass_surface_dim_dark">#3A3A3C</color>
+    <color name="glass_on_surface_dark">#F2F2F7</color>
+</resources>

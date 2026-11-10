@@ -1,0 +1,31 @@
+<?xml version="1.0" encoding="utf-8"?>
+<navigation xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/nav_graph"
+    app:startDestination="@id/nightFragment">
+
+    <fragment
+        android:id="@+id/nightFragment"
+        android:name="com.cylldby.blocker.ui.night.NightFragment"
+        android:label="@string/nav_night" />
+
+    <fragment
+        android:id="@+id/appsFragment"
+        android:name="com.cylldby.blocker.ui.apps.AppsFragment"
+        android:label="@string/nav_apps" />
+
+    <fragment
+        android:id="@+id/sitesFragment"
+        android:name="com.cylldby.blocker.ui.sites.SitesFragment"
+        android:label="@string/nav_sites" />
+
+    <fragment
+        android:id="@+id/scheduleFragment"
+        android:name="com.cylldby.blocker.ui.schedule.ScheduleFragment"
+        android:label="@string/nav_schedule" />
+
+    <fragment
+        android:id="@+id/quickBlockFragment"
+        android:name="com.cylldby.blocker.ui.quickblock.QuickBlockFragment"
+        android:label="Focus" />
+</navigation>

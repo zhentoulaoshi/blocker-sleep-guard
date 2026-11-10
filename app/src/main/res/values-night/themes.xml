@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.Blocker" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="colorPrimary">@color/glass_tint_dark</item>
+        <item name="colorOnPrimary">@color/glass_on_surface_dark</item>
+        <item name="colorPrimaryContainer">@color/glass_surface_dim_dark</item>
+        <item name="colorOnPrimaryContainer">@color/glass_on_surface_dark</item>
+
+        <item name="colorSecondary">@color/glass_tint_dark</item>
+        <item name="colorTertiary">@color/glass_tint_dark</item>
+
+        <item name="colorSurface">@color/glass_surface_dark</item>
+        <item name="colorOnSurface">@color/glass_on_surface_dark</item>
+        <item name="colorSurfaceVariant">@color/glass_surface_dim_dark</item>
+        <item name="colorOnSurfaceVariant">@color/glass_secondary_text</item>
+
+        <item name="android:colorBackground">@color/glass_bg_dark</item>
+        <item name="colorOnBackground">@color/glass_on_surface_dark</item>
+
+        <item name="colorError">@color/glass_destructive</item>
+
+        <item name="android:windowBackground">@color/glass_bg_dark</item>
+
+        <item name="dialogCornerRadius">14dp</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Blocker.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Blocker.Large</item>
+    </style>
+
+</resources>

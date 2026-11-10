@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<menu xmlns:android="http://schemas.android.com/apk/res/android">
+    <item android:id="@+id/nightFragment" android:title="@string/nav_night" android:icon="@android:drawable/ic_lock_idle_lock" />
+    <item android:id="@+id/quickBlockFragment" android:title="Focus" android:icon="@android:drawable/ic_menu_recent_history" />
+    <item android:id="@+id/appsFragment" android:title="@string/nav_apps" android:icon="@android:drawable/ic_menu_manage" />
+    <item android:id="@+id/sitesFragment" android:title="@string/nav_sites" android:icon="@android:drawable/ic_menu_myplaces" />
+    <item android:id="@+id/scheduleFragment" android:title="@string/nav_schedule" android:icon="@android:drawable/ic_menu_agenda" />
+</menu>

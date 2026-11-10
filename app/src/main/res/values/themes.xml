@@ -1,0 +1,46 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+
+    <style name="Theme.Blocker" parent="Theme.Material3.DayNight.NoActionBar">
+        <!-- No purple — use iOS system blue as accent -->
+        <item name="colorPrimary">@color/glass_tint</item>
+        <item name="colorOnPrimary">@color/glass_surface</item>
+        <item name="colorPrimaryContainer">@color/glass_surface_dim</item>
+        <item name="colorOnPrimaryContainer">@color/glass_on_surface</item>
+
+        <item name="colorSecondary">@color/glass_tint</item>
+        <item name="colorTertiary">@color/glass_tint</item>
+
+        <item name="colorSurface">@color/glass_surface</item>
+        <item name="colorOnSurface">@color/glass_on_surface</item>
+        <item name="colorSurfaceVariant">@color/glass_surface_dim</item>
+        <item name="colorOnSurfaceVariant">@color/glass_secondary_text</item>
+
+        <item name="android:colorBackground">@color/glass_bg</item>
+        <item name="colorOnBackground">@color/glass_on_surface</item>
+
+        <item name="colorError">@color/glass_destructive</item>
+
+        <!-- Flat, card-less window background -->
+        <item name="android:windowBackground">@color/glass_bg</item>
+
+        <!-- Rounded corners on dialogs / bottom sheets -->
+        <item name="dialogCornerRadius">14dp</item>
+        <item name="shapeAppearanceMediumComponent">@style/ShapeAppearance.Blocker.Medium</item>
+        <item name="shapeAppearanceLargeComponent">@style/ShapeAppearance.Blocker.Large</item>
+    </style>
+
+    <style name="ShapeAppearance.Blocker.Medium" parent="ShapeAppearance.Material3.MediumComponent">
+        <item name="cornerSize">12dp</item>
+    </style>
+
+    <style name="ShapeAppearance.Blocker.Large" parent="ShapeAppearance.Material3.LargeComponent">
+        <item name="cornerSize">16dp</item>
+    </style>
+
+    <style name="Theme.Blocker.Overlay" parent="Theme.Material3.DayNight.NoActionBar">
+        <item name="android:windowIsTranslucent">true</item>
+        <item name="android:windowBackground">@color/overlay_bg</item>
+    </style>
+
+</resources>
