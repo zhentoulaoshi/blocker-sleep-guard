@@ -1,27 +1,54 @@
 name: Build debug APK
+
+# Only GitHub-official actions are used. A third-party SDK setup action failed
+# on the first run, so it was removed. GitHub-hosted ubuntu runners already
+# ship the Android SDK and Java, so we just verify them and install the exact
+# Gradle version this project declares.
+
 on:
   push:
     branches: [ main, master ]
   workflow_dispatch:
+
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
+
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
-      - uses: android-actions/setup-android@v3
-      - name: Install Android SDK
+
+      - name: Check Android SDK
         run: |
-          yes | sdkmanager --licenses > /dev/null || true
-          sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
-      - uses: gradle/actions/setup-gradle@v3
-        with:
-          gradle-version: '8.6'
+          SDK="${ANDROID_HOME:-$ANDROID_SDK_ROOT}"
+          if [ -z "$SDK" ]; then SDK="/usr/local/lib/android/sdk"; fi
+          echo "ANDROID_HOME=$SDK" >> "$GITHUB_ENV"
+          echo "ANDROID_SDK_ROOT=$SDK" >> "$GITHUB_ENV"
+          export ANDROID_HOME="$SDK" ANDROID_SDK_ROOT="$SDK"
+          echo "Using SDK at $SDK"
+          if [ ! -d "$SDK/platforms/android-34" ] || [ ! -d "$SDK/build-tools/34.0.0" ]; then
+            export PATH="$SDK/cmdline-tools/latest/bin:$PATH"
+            yes | sdkmanager --licenses > /dev/null || true
+            sdkmanager "platforms;android-34" "build-tools;34.0.0" "platform-tools"
+          else
+            echo "Android 34 platform and build-tools already present"
+          fi
+
+      # Matches gradle/wrapper/gradle-wrapper.properties (required by AGP 8.3.2)
+      - name: Install Gradle 8.6
+        run: |
+          curl -fsSL --retry 2 --max-time 300 \
+            https://services.gradle.org/distributions/gradle-8.6-bin.zip \
+            -o "$RUNNER_TEMP/gradle.zip"
+          unzip -q "$RUNNER_TEMP/gradle.zip" -d "$RUNNER_TEMP"
+          echo "$RUNNER_TEMP/gradle-8.6/bin" >> "$GITHUB_PATH"
+
       - name: Build debug APK
-        run: gradle assembleDebug --stacktrace
+        run: gradle assembleDebug --stacktrace --no-daemon
+
       - uses: actions/upload-artifact@v4
         with:
           name: blocker-night-guard-apk
