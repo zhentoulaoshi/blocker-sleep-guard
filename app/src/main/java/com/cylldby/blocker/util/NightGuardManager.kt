@@ -6,11 +6,11 @@ import java.util.Calendar
 /**
  * Single source of truth for the sleep-time guard.
  *
- * Three distinct states, deliberately kept separate so a temporary grace
- * period can NEVER be used to unlock the settings:
+ * Three distinct states, deliberately kept separate so a temporary unlock
+ * can NEVER be used to unlock the settings:
  *  - isInNightWindow(): purely "is it between start and end right now"
  *  - isSettingsLocked(): night window + strict mode -> no config edits at all
- *  - isNightActive(): night window + no grace -> actually enforce blocking
+ *  - isNightActive(): night window + no unlock window -> actually enforce blocking
  */
 object NightGuardManager {
 
@@ -21,22 +21,14 @@ object NightGuardManager {
     private const val KEY_WECHAT_CHAT_ONLY = "wechat_chat_only"
     private const val KEY_STRICT = "strict"
     private const val KEY_EXTRA_ALLOWED = "extra_allowed_pkgs"
-    private const val KEY_GRACE_DATE = "grace_date"
-    private const val KEY_GRACE_UNTIL = "grace_until_ms"
+    // Keep the historical key name so existing installs keep their state on upgrade.
+    private const val KEY_UNLOCK_UNTIL = "grace_until_ms"
 
     const val DEFAULT_START_MINUTE = 23 * 60          // 23:00
     const val DEFAULT_END_MINUTE = 7 * 60             // 07:00
-    const val GRACE_MINUTES = 5
 
     private fun prefs(context: Context) =
         context.getSharedPreferences(PREFS, Context.MODE_PRIVATE)
-
-    /**
-     * A night session spans noon -> noon. Using a plain calendar date allowed
-     * the once-per-night grace to be claimed at 23:50 and again at 00:10.
-     */
-    private fun nightSessionKey(now: Calendar = Calendar.getInstance()): String =
-        NightWindow.nightSessionKey(now.timeInMillis, now.get(Calendar.HOUR_OF_DAY))
 
     fun isEnabled(context: Context) = prefs(context).getBoolean(KEY_ENABLED, false)
 
@@ -60,7 +52,7 @@ object NightGuardManager {
     fun getWindowText(context: Context) =
         "${NightWindow.format(getStartMinute(context))} – ${NightWindow.format(getEndMinute(context))}"
 
-    /** Pure clock check — unaffected by grace periods. */
+    /** Pure clock check — unaffected by unlock windows. */
     fun isInNightWindow(context: Context, now: Calendar = Calendar.getInstance()): Boolean {
         if (!isEnabled(context)) return false
         val minute = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
@@ -71,7 +63,7 @@ object NightGuardManager {
         isStrict(context) && isInNightWindow(context, now)
 
     fun isNightActive(context: Context, now: Calendar = Calendar.getInstance()): Boolean =
-        isInNightWindow(context, now) && !isGraceActive(context)
+        isInNightWindow(context, now) && !isUnlockActive(context)
 
     fun minutesUntilMorning(context: Context, now: Calendar = Calendar.getInstance()): Int {
         val minute = now.get(Calendar.HOUR_OF_DAY) * 60 + now.get(Calendar.MINUTE)
@@ -144,24 +136,27 @@ object NightGuardManager {
         return true
     }
 
-    // ----- One short grace window per night, for genuinely urgent calls -----
+    // ----- Temporary unlock window (opened ONLY by UnlockManager) -----
 
-    fun graceUsedToday(context: Context) =
-        prefs(context).getString(KEY_GRACE_DATE, "") == nightSessionKey()
+    fun isUnlockActive(context: Context) =
+        System.currentTimeMillis() < prefs(context).getLong(KEY_UNLOCK_UNTIL, 0L)
 
-    fun isGraceActive(context: Context) =
-        System.currentTimeMillis() < prefs(context).getLong(KEY_GRACE_UNTIL, 0L)
+    fun getUnlockRemainingMs(context: Context) =
+        (prefs(context).getLong(KEY_UNLOCK_UNTIL, 0L) - System.currentTimeMillis()).coerceAtLeast(0L)
 
-    fun getGraceRemainingMs(context: Context) =
-        (prefs(context).getLong(KEY_GRACE_UNTIL, 0L) - System.currentTimeMillis()).coerceAtLeast(0L)
-
-    fun requestGrace(context: Context, minutes: Int = GRACE_MINUTES): Boolean {
-        if (!isInNightWindow(context)) return false
-        if (graceUsedToday(context)) return false
+    /**
+     * [minutes] < 0 means "until this night window ends". This deliberately
+     * does not touch settings: strict mode stays on for the whole night, so
+     * an unlocked phone still cannot be used to weaken tomorrow's guard.
+     */
+    fun activateUnlock(context: Context, minutes: Int) {
+        val duration = if (minutes < 0) {
+            (minutesUntilMorning(context) + 1).coerceAtLeast(1)
+        } else {
+            minutes.coerceIn(1, 24 * 60)
+        }
         prefs(context).edit()
-            .putString(KEY_GRACE_DATE, nightSessionKey())
-            .putLong(KEY_GRACE_UNTIL, System.currentTimeMillis() + minutes * 60_000L)
+            .putLong(KEY_UNLOCK_UNTIL, System.currentTimeMillis() + duration * 60_000L)
             .apply()
-        return true
     }
 }

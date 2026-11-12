@@ -5,6 +5,7 @@ import androidx.lifecycle.AndroidViewModel
 import com.cylldby.blocker.service.NightGuardService
 import com.cylldby.blocker.util.NightGuardManager
 import com.cylldby.blocker.util.PermissionHelper
+import com.cylldby.blocker.util.UnlockManager
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import java.util.Calendar
@@ -17,8 +18,7 @@ data class NightUiState(
     val strict: Boolean = true,
     val locked: Boolean = false,
     val nightActive: Boolean = false,
-    val graceActive: Boolean = false,
-    val graceUsed: Boolean = false,
+    val unlockActive: Boolean = false,
     val extraAllowed: Set<String> = emptySet(),
     val minutesLeft: Int = 0,
     val permissionsOk: Boolean = true
@@ -42,8 +42,7 @@ class NightViewModel(app: Application) : AndroidViewModel(app) {
             strict = NightGuardManager.isStrict(c),
             locked = NightGuardManager.isSettingsLocked(c, now),
             nightActive = NightGuardManager.isNightActive(c, now),
-            graceActive = NightGuardManager.isGraceActive(c),
-            graceUsed = NightGuardManager.graceUsedToday(c),
+            unlockActive = NightGuardManager.isUnlockActive(c),
             extraAllowed = NightGuardManager.getExtraAllowed(c),
             minutesLeft = NightGuardManager.minutesUntilMorning(c, now),
             permissionsOk = PermissionHelper.guardPermissionsGranted(c)
@@ -87,9 +86,26 @@ class NightViewModel(app: Application) : AndroidViewModel(app) {
         return ok
     }
 
-    fun requestGrace(): Boolean {
-        if (!NightGuardManager.isInNightWindow(context)) return false
-        val ok = NightGuardManager.requestGrace(context)
+    fun unlock(input: String): UnlockManager.Result {
+        val result = UnlockManager.verifyAndUnlock(context, input)
+        refresh()
+        return result
+    }
+
+    fun saveMaster(raw: String): Boolean {
+        val ok = UnlockManager.setMaster(context, raw)
+        refresh()
+        return ok
+    }
+
+    fun saveEmergency(raw: String): Boolean {
+        val ok = UnlockManager.setEmergency(context, raw)
+        refresh()
+        return ok
+    }
+
+    fun cycleUnlockMinutes(): Boolean {
+        val ok = UnlockManager.cycleUnlockMinutes(context)
         refresh()
         return ok
     }

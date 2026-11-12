@@ -205,7 +205,7 @@
 
         </com.google.android.material.card.MaterialCardView>
 
-        <com.google.android.material.card.MaterialCardView
+                <com.google.android.material.card.MaterialCardView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:layout_marginBottom="16dp"
@@ -242,17 +242,109 @@
                 <TextView
                     android:layout_width="wrap_content"
                     android:layout_height="wrap_content"
-                    android:text="守护时段内不能关闭守护、改时间或改白名单，设置与卸载入口也会被拦下。真有急事可用下面的一次性放行。"
+                    android:text="守护时段内不能关闭守护、改时间、改白名单，也不能设定或修改任何解锁密码。系统设置与卸载入口同样会被拦下。"
+                    android:textSize="13sp"
+                    android:textColor="@color/glass_secondary_text" />
+
+            </LinearLayout>
+
+        </com.google.android.material.card.MaterialCardView>
+
+        <com.google.android.material.card.MaterialCardView
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:layout_marginBottom="16dp"
+            app:cardBackgroundColor="@color/glass_surface"
+            app:cardCornerRadius="16dp"
+            app:cardElevation="0dp"
+            app:strokeWidth="0dp">
+
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="vertical"
+                android:padding="16dp">
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="两种解锁方式"
+                    android:textSize="16sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/glass_on_surface"
+                    android:layout_marginBottom="6dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="密码只能在白天设定，且只存加盐哈希，界面不会显示明文。夜里唯一能按的按钮是「输入密码解锁」。"
                     android:textSize="13sp"
                     android:textColor="@color/glass_secondary_text"
-                    android:layout_marginBottom="12dp" />
+                    android:layout_marginBottom="14dp" />
+
+                <TextView
+                    android:id="@+id/tvMasterState"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="① 纸条密码：尚未设定"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/glass_on_surface" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="① 30 位纸条密码（一次性）：App 随机生成、只显示一次，抄在纸上放到另一个房间。夜里用一次立即作废，白天必须重新生成新纸条。"
+                    android:textSize="13sp"
+                    android:textColor="@color/glass_secondary_text"
+                    android:layout_marginBottom="10dp" />
 
                 <com.google.android.material.button.MaterialButton
-                    android:id="@+id/btnGrace"
+                    android:id="@+id/btnGenerateMaster"
                     style="@style/Widget.Material3.Button.OutlinedButton"
                     android:layout_width="match_parent"
                     android:layout_height="wrap_content"
-                    android:text="临时放行 5 分钟（每晚 1 次）" />
+                    android:text="生成新的 30 位纸条密码" />
+
+                <TextView
+                    android:id="@+id/tvEmergencyState"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="② 紧急密码：尚未设定"
+                    android:textSize="15sp"
+                    android:textStyle="bold"
+                    android:textColor="@color/glass_on_surface"
+                    android:layout_marginTop="18dp" />
+
+                <TextView
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="② 6 位紧急密码（亲友保管）：白天请亲友输入并记住，机主看不到。可重复使用，但每次解锁都会记录次数与时间。"
+                    android:textSize="13sp"
+                    android:textColor="@color/glass_secondary_text"
+                    android:layout_marginBottom="10dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnSetEmergency"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="设定 / 重设 6 位紧急密码（交给亲友）" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnUnlockDuration"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="解锁时长：30 分钟（点击切换）"
+                    android:layout_marginTop="14dp" />
+
+                <com.google.android.material.button.MaterialButton
+                    android:id="@+id/btnUnlock"
+                    style="@style/Widget.Material3.Button.OutlinedButton"
+                    android:layout_width="match_parent"
+                    android:layout_height="wrap_content"
+                    android:text="夜间解锁（输入密码）" />
 
                 <TextView
                     android:id="@+id/tvLockHint"

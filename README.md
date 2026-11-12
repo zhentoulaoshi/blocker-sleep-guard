@@ -7,35 +7,55 @@
 | 项目 | 默认行为 |
 |---|---|
 | 生效时段 | 每天 23:00 – 次日 07:00，可在「守护」页改，跨天自动处理 |
-| 触发方式 | 不需要手动点开始，也不依赖闹钟；每次切换应用时按当前时间实时判定，**到点 / 宽限结束时还会主动复核当前前台应用**，重启手机后依然有效 |
+| 触发方式 | 不需要手动点开始，也不依赖闹钟；每次切换应用时按当前时间实时判定，**到点 / 解锁窗口结束时还会主动复核当前前台应用**，重启手机后依然有效 |
 | 自动放行 | 系统电话 / 来电界面 / 短信 / 联系人 / 闹钟 / 桌面 / 系统界面（按 Intent 自动识别，兼容小米、华为、OPPO、vivo、三星等不同包名） |
 | 微信 | 默认「仅聊天」：保留会话列表与聊天页；视频号、朋友圈、看一看、小程序、公众号 / 外链、直播、视频播放、语音视频通话、发现页与「我」页全部拦下。也可切换为「夜间完全禁用微信」 |
 | 其它应用 | 一律拦截，弹全屏提示并送回桌面；重复打开会重复拦截 |
 | 防绕过 | 守护时段内锁定设置（不能关守护、改时间、改白名单），并屏蔽系统设置、安装器、应用市场等可用来关权限 / 卸载的入口 |
-| 急事通道 | 「临时放行 5 分钟」，每个睡眠夜限一次（中午到中午，跨午夜不重置），到点自动恢复，且放行期间设置仍然锁定 |
+| 急事通道 | **两种密码解锁**：30 位纸条密码（一次性、放别的房间）与 6 位亲友紧急密码（可重复、每次留痕）。夜间不能设定或改密码，解锁只临时放行应用，设置仍然锁定 |
 | 第二层 | 若在「Sites」页开启过网站拦截 VPN，夜间会额外屏蔽短视频 / 视频 / 资讯域名（DNS 层） |
+
+## 一之二、两种解锁方式（防「半夜的自己」）
+
+夜间配置全部锁死，**唯一还能按的按钮是「输入密码解锁」**。密码只能在白天设定，且只保存加盐 SHA-256 哈希——App 不存明文、界面不回显。
+
+| | 30 位纸条密码 | 6 位紧急密码 |
+|---|---|---|
+| 谁掌握 | 机主自己 | 亲友 |
+| 怎么来 | App 随机生成，**只显示一次**，抄在纸上 | 白天由亲友输入两次并记住 |
+| 放哪里 | 另一个房间的纸上（想用就得起身走过去） | 只记在亲友脑子里 |
+| 用几次 | **一次**：验证成功瞬间销毁哈希，白天必须重新生成新纸条 | 可重复使用 |
+| 留痕 | 状态显示「已用完，白天必须重新生成」 | 累计次数 + 最近使用时间，白天可见 |
+| 夜里能改吗 | 不能 | 不能 |
+
+- 解锁只**临时放行应用**（默认 30 分钟，可切换 15 / 30 / 60 分钟 / 到天亮），**设置仍然锁定**，所以解锁后也无法削弱明晚的守护。
+- 30 位密码按 5 位一组显示、去掉了 `0/O/1/I` 等易混淆字符，手抄不容易出错；输入时空格和连字符都会被忽略。
+- 连续 5 次输错锁定 10 分钟，避免半夜硬猜 6 位数字。
+- 原来的「无密码一键放行 5 分钟」**已移除**：那等于把钥匙放在床头，与这套设计冲突。
+- 边界：Android 不允许第三方 App 阻止机主白天清除 App 数据或手动关掉无障碍服务。想更硬，可配合系统「数字健康」让家人设一个你不知道的 PIN。
 
 ## 二、实现逻辑（为什么这样做）
 
 1. **时间判定放在无障碍服务里，而不是用 AlarmManager。** 每次窗口切换事件直接读当前时间，重启、杀后台、时区变化都不会漏；前台服务只负责常驻通知和抗杀，不负责拦截。**纯靠事件会有个漏洞：22:55 打开抖音一直刷到 23:30，中间没有任何窗口切换事件。** 因此服务内另有一个 20 秒的前台复核（只读取当前窗口的包名，不读内容），界面变化事件也会限流触发一次；这样"到点时已经开着的应用"和"宽限期结束后继续用"都会被收回桌面。
-2. **基础通信用「Intent 反查 + 系统包关键字」双保险。** 国产 ROM 的拨号 / 短信包名各不相同，硬编码必然漏；先解析 `ACTION_DIAL`、`sms:`、`CATEGORY_HOME`、`SHOW_ALARMS` 的真实处理者，再对系统包做保守关键字兜底，保证来电界面能接起、闹钟能响。
+2. **基础通信用「Intent 反查 + 系统包关键字」双保险。** 国产 ROM 的拨号 / 短信包名各不相同，硬编码必然漏；先解析 `ACTION_DIAL`、`sms:`、`CATEGORY_HOME`、`AlarmClock.ACTION_SHOW_ALARMS` 与 `ACTION_SET_ALARM` 的真实处理者，再对系统包做保守关键字兜底，保证来电界面能接起、闹钟能响。
 3. **微信按「页面」而不是按「应用」判断。** 微信四个页签共用 `LauncherUI`，只看包名无法区分。因此同时用：窗口事件里的 Activity 类名黑名单（`finder` 视频号、`sns` 朋友圈、`appbrand` 小程序、`webview` 公众号、`voip` 通话、`live/video` 视频…），以及被点击 / 被选中节点的标签精确匹配（「发现」「我」「视频号」…）。命中后自动返回聊天列表并提示，连续三次仍不退出就送回桌面。
 4. **标签匹配刻意做得很紧，且「点击」与「选中态」走两套规则。** 点一条聊天消息时，事件文本就是消息本身，所以「我」「设置」「视频」「收藏」这类常见词一律不能在点击路径上拦截；「发现」「我」两个底部页签只有在节点确实位于屏幕底部 28% 的页签栏时才算命中，其余功能入口要求文本完全相等或只带数字角标。窗口树里的「已选中」节点则可以用较宽的标签匹配，因为聊天消息不会被标记为 selected。App 不读取聊天内容、不联网、不上传任何数据。
-5. **防绕过的重点是「半夜的自己」。** 10 秒紧急停止按钮在守护时段隐藏；设置页、安装器、应用市场被拦截；配置开关在夜间置灰。急事只留每晚一次的 5 分钟放行，且放行期间仍锁定配置。
+5. **防绕过的重点是「半夜的自己」。** 10 秒紧急停止按钮在守护时段隐藏；设置页、安装器、应用市场被拦截；配置开关与两种密码的设定入口在夜间全部置灰。急事只能凭纸条或找亲友要密码，且解锁期间仍锁定配置。详见下一节。
 
 ## 三、装到手机上
 
-本机没有 Java / Android SDK / Gradle，所以这里提供两条不需要本地配环境的路径：
+如果不方便在本机安装 Java / Android SDK / Gradle，下面两条路径都能拿到可安装的 APK：
 
 | 路径 | 做法 |
 |---|---|
-| **A. 云端出 APK（推荐）** | 把本目录推到 GitHub 仓库 → Actions 里运行 `Build debug APK` → 下载 `blocker-night-guard-apk` 里的 `app-debug.apk` → 传到手机安装。流水线自动装 JDK 17、Android 34 SDK、Gradle 8.6，**构建不依赖 wrapper**，所以不会因为缺 jar 而失败 |
-| **A′. 顺带拿完整工程** | 同一次运行还会产出 `blocker-project-with-wrapper`（一个 zip），里面是**带官方 `gradle-wrapper.jar` 的完整项目**，解压后 Android Studio 可直接打开 |
-| **B. Android Studio** | 用 Ladybug 或更新版本打开本目录；若提示缺 `gradle-wrapper.jar`，先在项目目录执行 `gradle wrapper --gradle-version 8.6 --distribution-type bin`（需本机装 Gradle），或直接用 A′ 的 zip。之后连手机点 Run，或 `./gradlew assembleDebug` |
+| **A. 云端出 APK（推荐）** | 把本目录推到 GitHub 仓库 → Actions 里运行 `Build debug APK` → 下载 `blocker-night-guard-apk` 里的 `app-debug.apk` → 传到手机安装。流水线只用 GitHub 官方组件：装 JDK 17、复用构建机预装的 Android 34 SDK、固定下载 Gradle 8.6，**不依赖 wrapper jar** |
+| **A′. 两个坑** | ① GitHub 网页上传会跳过 `.github` 等点开头目录，若 Actions 没触发，用 **Add file → Create new file** 补建 `.github/workflows/build-apk.yml`；② 流水线**不要引入第三方 action**（GitHub 已强制 Node 24，旧版第三方组件会直接失败） |
+| **B. Android Studio** | 用 Ladybug 或更新版本打开本目录；若提示缺 `gradle-wrapper.jar`，IDE 会补齐，或先执行 `gradle wrapper --gradle-version 8.6 --distribution-type bin`。之后连手机点 Run，或 `./gradlew assembleDebug` |
+| **C. 已装好 JDK 17 + Android 34 SDK 的机器** | 在项目目录执行 `gradle assembleDebug`，产物在 `app/build/outputs/apk/debug/app-debug.apk`（需 Gradle 8.6 / AGP 8.3.2） |
 
 安装后按引导授予**无障碍服务**和**显示在其他应用上层**两项必需权限（「使用情况访问」只给白天的配额功能用，可选）。然后：
 
-1. 打开 App 的「守护」页 → **先设好起止时间与微信规则，再打开「每天自动开启守护」总开关**（打开后若正处于时段内，设置会立刻锁定）。
+1. 打开 App 的「守护」页 → **先设好起止时间、微信规则和两种解锁密码，再打开「每天自动开启守护」总开关**（打开后若正处于时段内，设置会立刻锁定）。
 2. 建议白天先试一次：把开始时间临时设到当前时间前一小时，确认电话、短信、微信聊天可用，短视频 / 视频号会被拦下，再改回 23:00。
 3. 国产 ROM 请把本 App 加入电池优化白名单 / 允许后台运行，避免系统杀掉前台服务。
 
@@ -63,7 +83,7 @@
 - 「快速屏蔽 / Focus」的例外应用列表原来过滤掉了所有系统应用，导致**电话、短信根本选不进白名单**；现在改为「可启动应用 + 系统通信处理者」，并让例外列表在 App 重启后保留。
 - VPN 的 DNS 上游原来写死 `8.8.8.8`，在国内基本不可达，会让**所有网站解析超时**；现在改用阿里 `223.5.5.5` 与腾讯 `119.29.29.29` 双备，全失败才返回 SERVFAIL。
 - 引导流程原来强制要求「使用情况访问」权限才让进入主界面，而睡眠守护并不需要它；现在只要求无障碍 + 悬浮窗两项。
-- 补上了缺失的 `gradlew` / `gradlew.bat` 启动脚本和云端构建流水线；`gradle-wrapper.jar` 未随压缩包提供，由 Android Studio 或流水线自动生成。
+- 补上了缺失的 `gradlew` / `gradlew.bat` 启动脚本和云端构建流水线；`gradle-wrapper.jar` 未随压缩包提供，由 Android Studio 自动补齐（云端构建不需要它）。
 - 新增纯 JVM 单测：跨午夜时间窗、剩余时长、微信 Activity / 页签判定与聊天文本误判防护。
 
 ## 六、第二轮复查又修掉的问题
@@ -78,7 +98,7 @@
 | 「每晚一次」按自然日计数 | 23:50 用一次、00:10 又能用一次 | 改成「中午到中午」为一个睡眠夜，跨午夜同属一晚 |
 | 开机广播里启动 VPN 没有异常保护 | Android 12+ 拒绝后台启动 FGS 时会拖垮整个广播接收器，连守护通知也恢复不了 | 包 try/catch；顺带刷新电话 / 短信处理者缓存 |
 | `setWindow` 允许起止时间相同 | 守护被静默置为永不生效 | Manager 层也做范围与零长度校验，界面按「已锁定 / 时间相同」给不同提示 |
-| 云端流水线必须先生成 wrapper jar 才能构建 | 生成步骤一旦失败就拿不到 APK | 构建直接用 `gradle assembleDebug`，另产出带官方 wrapper 的完整工程 zip |
+| 云端流水线必须先生成 wrapper jar 才能构建 | 生成步骤一旦失败就拿不到 APK | 构建直接用 `gradle assembleDebug`，不依赖 wrapper jar |
 
 单测同步补充：跨午夜「同一睡眠夜」、底部页签位置判定、聊天消息文本不被误拦。
 
@@ -93,7 +113,7 @@ Blocker lets you set hard limits on apps and websites — with deliberate fricti
 ## Features
 
 ### 🌙 Sleep Guard (night mode)
-Automatically locks the phone every night (default 23:00–07:00). Only calls, in-call UI, SMS, contacts, alarms, the launcher and system UI stay available. WeChat runs in **chat-only** mode: 视频号 / 朋友圈 / 小程序 / 公众号 / 直播 / 视频通话 pages and the 发现 / 我 tabs are rejected at the activity and UI-node level. Settings, the package installer and app stores are blocked during the window, config edits are locked, and one 5-minute emergency grace per night is allowed. See the Chinese section at the top for the full rationale and limits.
+Automatically locks the phone every night (default 23:00–07:00). Only calls, in-call UI, SMS, contacts, alarms, the launcher and system UI stay available. WeChat runs in **chat-only** mode: 视频号 / 朋友圈 / 小程序 / 公众号 / 直播 / 视频通话 pages and the 发现 / 我 tabs are rejected at the activity and UI-node level. Settings, the package installer and app stores are blocked during the window, config edits are locked, and the only way out is one of two passwords: a single-use 30-character paper note (kept in another room) or a reusable 6-digit emergency PIN held by a relative. Both can only be configured in daylight. See the Chinese section at the top for the full rationale and limits.
 
 ### 📱 App Blocking
 Block any installed app after a **daily usage quota** (e.g. Instagram after 30 minutes). The app monitors foreground usage via Android's `UsageStatsManager` and triggers a blocking overlay the moment the quota is hit.
@@ -197,7 +217,7 @@ The VPN service forwards non-blocked DNS queries to `223.5.5.5` / `119.29.29.29`
 
 **WeChat page detection is version-sensitive:** it relies on WeChat activity class names and tab labels. A major WeChat redesign may require refreshing the keyword tables in `WeChatGuard.kt`. It also cannot stop notification previews or the system-level incoming-call popup.
 
-**Self-bypass:** no third-party app can prevent a user from manually switching the accessibility service off in system settings. Sleep Guard raises the friction (locked config, blocked settings/installer, hidden emergency stop, one short grace per night) but is not a tamper-proof parental-control lock.
+**Self-bypass:** no third-party app can prevent a user from manually switching the accessibility service off in system settings. Sleep Guard raises the friction (locked config, blocked settings/installer, hidden emergency stop, password-gated unlock) but is not a tamper-proof parental-control lock.
 
 ---
 

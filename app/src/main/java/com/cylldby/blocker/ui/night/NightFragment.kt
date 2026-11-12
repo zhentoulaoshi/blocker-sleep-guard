@@ -2,14 +2,19 @@ package com.cylldby.blocker.ui.night
 
 import android.app.TimePickerDialog
 import android.content.Intent
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.provider.Settings
+import android.text.InputType
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
+import android.widget.LinearLayout
+import android.widget.TextView
 import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.fragment.app.viewModels
@@ -20,6 +25,7 @@ import com.cylldby.blocker.databinding.FragmentNightBinding
 import com.cylldby.blocker.util.EssentialApps
 import com.cylldby.blocker.util.NightGuardManager
 import com.cylldby.blocker.util.NightWindow
+import com.cylldby.blocker.util.UnlockManager
 import com.google.android.material.dialog.MaterialAlertDialogBuilder
 import kotlinx.coroutines.launch
 
@@ -75,22 +81,21 @@ class NightFragment : Fragment() {
         binding.btnEditWhitelist.setOnClickListener {
             showWhitelistDialog(vm.state.value.extraAllowed)
         }
-        binding.btnGrace.setOnClickListener {
-            MaterialAlertDialogBuilder(requireContext())
-                .setTitle("临时放行 5 分钟？")
-                .setMessage("今晚只能使用一次，到点自动恢复守护。设置本身仍然锁定。")
-                .setPositiveButton("确认放行") { _, _ ->
-                    if (!vm.requestGrace()) toast("今晚的一次性放行已用完，或当前不在守护时段")
-                }
-                .setNegativeButton("不用了", null)
-                .show()
+
+        binding.btnGenerateMaster.setOnClickListener { showGenerateMasterDialog() }
+        binding.btnSetEmergency.setOnClickListener { showSetEmergencyDialog() }
+        binding.btnUnlock.setOnClickListener { showUnlockDialog() }
+        binding.btnUnlockDuration.setOnClickListener {
+            if (!vm.cycleUnlockMinutes()) toast("夜间不能修改解锁时长，请白天再改")
         }
+
         binding.btnCheckPermissions.setOnClickListener { showPermissionDialog() }
 
         vm.refresh()
     }
 
     private fun render(s: NightUiState) {
+        val ctx = requireContext()
         binding.switchNight.isChecked = s.enabled
         binding.switchWechatChatOnly.isChecked = s.chatOnly
         binding.switchStrict.isChecked = s.strict
@@ -100,10 +105,10 @@ class NightFragment : Fragment() {
         binding.btnSetEnd.text = "结束 ${NightWindow.format(s.endMinute)}"
 
         val (status, detail) = when {
-            !s.enabled -> "睡眠守护未启用" to "先设好时段与微信规则，再打开上面的开关"
-            s.graceActive -> {
-                val mins = (NightGuardManager.getGraceRemainingMs(requireContext()) / 60_000L).toInt() + 1
-                "临时宽限中" to "约 ${mins} 分钟后自动恢复守护"
+            !s.enabled -> "睡眠守护未启用" to "先设好时段、微信规则和两种解锁密码，再打开上面的开关"
+            s.unlockActive -> {
+                val mins = (NightGuardManager.getUnlockRemainingMs(ctx) / 60_000L).toInt() + 1
+                "已临时解锁" to "约 ${mins} 分钟后自动恢复守护 · 设置仍然锁定"
             }
             s.nightActive -> {
                 val h = s.minutesLeft / 60
@@ -135,11 +140,37 @@ class NightFragment : Fragment() {
         // so hide that route instead of sending the user into a block overlay.
         binding.btnCheckPermissions.isEnabled = editable
 
-        binding.btnGrace.isEnabled = s.enabled && !s.graceUsed && vm.isInNightWindow()
+        // Passwords can only be created/changed in daylight. At night the ONLY
+        // usable control on this page is "unlock with a password".
+        binding.btnGenerateMaster.isEnabled = editable
+        binding.btnSetEmergency.isEnabled = editable
+        binding.btnUnlockDuration.isEnabled = editable
+        binding.btnUnlock.isEnabled = s.enabled && vm.isInNightWindow() &&
+            !s.unlockActive && !UnlockManager.isThrottled(ctx) &&
+            (UnlockManager.hasMaster(ctx) || UnlockManager.hasEmergency(ctx))
+
+        binding.tvMasterState.text = when {
+            UnlockManager.isMasterSpent(ctx) -> "① 纸条密码：已用完，白天必须重新生成"
+            UnlockManager.hasMaster(ctx) -> "① 纸条密码：已设定（放在别的房间）"
+            else -> "① 纸条密码：尚未设定"
+        }
+
+        binding.tvEmergencyState.text = if (UnlockManager.hasEmergency(ctx)) {
+            val last = UnlockManager.lastEmergencyUseText(ctx)
+            "② 紧急密码：已由亲友设定 · 累计使用 ${UnlockManager.emergencyUseCount(ctx)} 次" +
+                if (last.isBlank()) "" else " · 最近 $last"
+        } else {
+            "② 紧急密码：尚未设定"
+        }
+
+        binding.btnUnlockDuration.text = "解锁时长：${UnlockManager.unlockLabel(ctx)}（点击切换）"
+
         binding.tvLockHint.text = when {
-            s.graceUsed -> "今晚的一次性放行已用完"
-            s.locked -> "要改设置，请等天亮；急事可用上方一次性放行"
-            else -> "一次性放行只在守护时段内可用，5 分钟后自动恢复"
+            UnlockManager.isThrottled(ctx) ->
+                "密码连续试错过多，${UnlockManager.throttleRemainingMinutes(ctx)} 分钟后才能再试"
+            s.locked -> "守护时段内不能设定或修改密码，只能输入密码解锁"
+            s.unlockActive -> "解锁期间设置仍然锁定，到点自动恢复守护"
+            else -> "白天设定好两种密码：纸条放远一点，紧急密码交给亲友"
         }
     }
 
@@ -157,6 +188,127 @@ class NightFragment : Fragment() {
             },
             currentMinute / 60, currentMinute % 60, true
         ).show()
+    }
+
+    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
+
+    /** The 30-char note is shown exactly once and only saved after the owner
+     *  confirms it has been copied. Cancelling leaves no usable password behind. */
+    private fun showGenerateMasterDialog() {
+        val ctx = requireContext()
+        var raw = UnlockManager.generateMasterRaw()
+
+        fun show() {
+            val code = TextView(ctx).apply {
+                text = UnlockManager.displayMaster(raw)
+                textSize = 20f
+                typeface = Typeface.MONOSPACE
+                setTextIsSelectable(true)
+            }
+            val note = TextView(ctx).apply {
+                text = "现在用笔抄在纸上，放到另一个房间。关掉这个窗口后不会再显示；夜里用一次立即作废，白天必须重新生成新纸条。"
+                textSize = 14f
+            }
+            val box = LinearLayout(ctx).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(20), dp(16), dp(20), 0)
+                addView(code)
+                addView(note)
+            }
+            MaterialAlertDialogBuilder(ctx)
+                .setTitle("抄下这张纸条")
+                .setView(box)
+                .setPositiveButton("我已抄好，启用") { _, _ ->
+                    toast(
+                        if (vm.saveMaster(raw)) "纸条密码已生效，请把纸放到别的房间"
+                        else "夜间不能设定密码，请白天再来"
+                    )
+                }
+                .setNeutralButton("换一张") { _, _ ->
+                    raw = UnlockManager.generateMasterRaw()
+                    show()
+                }
+                .setNegativeButton("取消", null)
+                .show()
+        }
+        show()
+    }
+
+    private fun showSetEmergencyDialog() {
+        val ctx = requireContext()
+        fun field(hint: String) = EditText(ctx).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            this.hint = hint
+            isSingleLine = true
+        }
+        val first = field("6 位数字")
+        val second = field("再输一次")
+        val tip = TextView(ctx).apply {
+            text = "请交给亲友输入并由他 / 她记住。App 不保存明文，也不会在机主界面显示；每次使用都会记录次数与时间。"
+            textSize = 14f
+        }
+        val box = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(16), dp(20), 0)
+            addView(tip)
+            addView(first)
+            addView(second)
+        }
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle("设定 6 位紧急密码")
+            .setView(box)
+            .setPositiveButton("保存") { _, _ ->
+                val a = first.text.toString().trim()
+                val b = second.text.toString().trim()
+                val message = when {
+                    a != b -> "两次输入不一致"
+                    !UnlockManager.isEmergencyShape(a) -> "必须是 6 位数字"
+                    vm.saveEmergency(a) -> "紧急密码已设定，请让亲友保管"
+                    else -> "夜间不能改密码，请白天再来"
+                }
+                toast(message)
+            }
+            .setNegativeButton("取消", null)
+            .show()
+    }
+
+    private fun showUnlockDialog() {
+        val ctx = requireContext()
+        val input = EditText(ctx).apply {
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            hint = "30 位纸条密码 或 6 位紧急密码"
+            isSingleLine = true
+        }
+        val box = LinearLayout(ctx).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(16), dp(20), 0)
+            addView(input)
+        }
+        MaterialAlertDialogBuilder(ctx)
+            .setTitle("夜间解锁")
+            .setMessage("解锁只临时放行应用，设置仍然锁定。")
+            .setView(box)
+            .setPositiveButton("解锁") { _, _ ->
+                val message = when (vm.unlock(input.text.toString())) {
+                    UnlockManager.Result.MASTER ->
+                        "解锁成功。这张纸条已作废，明天白天请重新生成"
+                    UnlockManager.Result.EMERGENCY ->
+                        "已用紧急密码解锁，本次使用已记录"
+                    UnlockManager.Result.WRONG ->
+                        if (UnlockManager.isThrottled(ctx))
+                            "连续试错过多，请 ${UnlockManager.throttleRemainingMinutes(ctx)} 分钟后再试"
+                        else "密码不对，还可尝试 ${UnlockManager.attemptsLeft(ctx)} 次"
+                    UnlockManager.Result.THROTTLED ->
+                        "连续试错过多，请 ${UnlockManager.throttleRemainingMinutes(ctx)} 分钟后再试"
+                    UnlockManager.Result.NO_KEYS ->
+                        "还没有设定任何解锁密码，请白天先设定"
+                    UnlockManager.Result.NOT_NIGHT ->
+                        "当前不在守护时段，不需要解锁"
+                }
+                toast(message)
+            }
+            .setNegativeButton("取消", null)
+            .show()
     }
 
     private fun showWhitelistDialog(current: Set<String>) {

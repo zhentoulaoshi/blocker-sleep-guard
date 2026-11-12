@@ -4,6 +4,7 @@ import android.content.Context
 import android.content.Intent
 import android.content.pm.ApplicationInfo
 import android.net.Uri
+import android.provider.AlarmClock
 
 /**
  * The handful of apps that must keep working at night: dialer / in-call UI,
@@ -52,7 +53,10 @@ object EssentialApps {
         collect(Intent(Intent.ACTION_DIAL))
         collect(Intent(Intent.ACTION_SENDTO, Uri.parse("sms:")))
         collect(Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME))
-        collect(Intent(Intent.ACTION_SHOW_ALARMS))
+        // ACTION_SHOW_ALARMS lives on AlarmClock, not on Intent. Also probe
+        // ACTION_SET_ALARM because some ROMs only declare a handler for that one.
+        collect(Intent(AlarmClock.ACTION_SHOW_ALARMS))
+        collect(Intent(AlarmClock.ACTION_SET_ALARM))
 
         val result = out.toSet()
         cachedResolved = result

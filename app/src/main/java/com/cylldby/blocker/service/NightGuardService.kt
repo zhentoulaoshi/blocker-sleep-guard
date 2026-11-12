@@ -80,8 +80,8 @@ class NightGuardService : Service() {
             return "睡眠守护未启用" to "打开 App 可设置 23:00 后的守护"
         }
         val window = NightGuardManager.getWindowText(this)
-        if (NightGuardManager.isGraceActive(this)) {
-            val mins = (NightGuardManager.getGraceRemainingMs(this) / 60_000L).toInt() + 1
+        if (NightGuardManager.isUnlockActive(this)) {
+            val mins = (NightGuardManager.getUnlockRemainingMs(this) / 60_000L).toInt() + 1
             return "临时宽限中" to "约 ${mins} 分钟后自动恢复守护"
         }
         if (NightGuardManager.isNightActive(this)) {
